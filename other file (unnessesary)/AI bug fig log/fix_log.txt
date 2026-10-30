@@ -1,0 +1,105 @@
+================================================================================
+FIX LOG: stable-diffusion-cpp-python Build & Installation Fix
+================================================================================
+Date: 2026-10-28
+Target: stable-diffusion-cpp-python (with Vulkan GPU acceleration for AMD RX 6600)
+Status: RESOLVED & SUCCESSFULLY INSTALLED (v0.4.7)
+
+--------------------------------------------------------------------------------
+1. SYMPTOM & ERROR ANALYSIS
+--------------------------------------------------------------------------------
+When running:
+  pip install --force-reinstall --no-cache-dir stable-diffusion-cpp-python
+
+The installation failed during the CMake / MSBuild build phase with the following errors:
+  - "CMake Error at CMakeLists.txt:2 (project): No CMAKE_C_COMPILER could be found."
+  - "error MSB8066: Custom build for '...vulkan-shaders-gen-configure.rule' exited with code 1."
+  - "error MSB6003: The specified task executable "CL.exe" could not be run. 
+     System.IO.DirectoryNotFoundException: Could not find a part of the path '...cmTC_xxxx.dir\Debug\cmTC_xxxx.tlog'."
+
+--------------------------------------------------------------------------------
+2. ROOT CAUSES IDENTIFIED
+--------------------------------------------------------------------------------
+a) Deep Path Length Exceeding Windows MAX_PATH (260 Characters):
+   - pip extracts source archives to deeply nested temporary directories:
+     C:\Users\<user>\AppData\Local\Temp\pip-install-...\vendor\stable-diffusion.cpp\ggml\src\ggml-vulkan\vulkan-shaders-gen-prefix\src\vulkan-shaders-gen-build\...
+   - stable-diffusion.cpp builds the Vulkan shader generator (`vulkan-shaders-gen`)
+     as an ExternalProject via CMake.
+   - When using Visual Studio / MSBuild generators on Windows, MSBuild creates tracked
+     dependency logs (`.tlog` files).
+   - In your system, Windows Long Path Support (`LongPathsEnabled`) was disabled (set to 0),
+     causing paths exceeding 260 characters to crash MSBuild with `System.IO.DirectoryNotFoundException`.
+
+b) Generator Choice & Developer Environment in Standard Terminals:
+   - In standard PowerShell / CMD sessions, the MSVC compiler (`cl.exe`), Windows Resource
+     Compiler (`rc.exe`), and SDK tools are not in the default system PATH.
+   - Defaulting to MSBuild for the nested shader generator triggered the path length crash.
+   - Using the `Ninja` generator bypasses MSBuild entirely: Ninja does not use `.tlog` files,
+     keeps build trees flat, builds dramatically faster, and avoids the MAX_PATH failure.
+
+--------------------------------------------------------------------------------
+3. WHAT WE DID TO FIX IT
+--------------------------------------------------------------------------------
+1. Installed Ninja into the project's virtual environment:
+   .\.venv\Scripts\pip.exe install ninja
+
+2. Loaded the Visual Studio 64-bit developer environment (`vcvars64.bat`), which provided
+   access to the MSVC toolchain (`cl.exe`, `rc.exe`, `mt.exe`, and Windows SDK).
+
+3. Configured CMake to use the Ninja generator:
+   $env:CMAKE_GENERATOR = "Ninja"
+
+4. Built and installed `stable-diffusion-cpp-python` with full Vulkan support:
+   .\.venv\Scripts\pip.exe install --force-reinstall --no-cache-dir stable-diffusion-cpp-python -C cmake.args="-DSD_VULKAN=ON"
+
+5. Verified installation and runtime:
+   - Module: stable_diffusion_cpp (version 0.4.7)
+   - Verified CPU feature detection: SSE3, AVX, AVX2, FMA, F16C
+   - Verified Vulkan driver detection: LunarG Vulkan SDK 1.4.363.0
+
+--------------------------------------------------------------------------------
+4. HOW TO REINSTALL OR BUILD IN THE FUTURE
+--------------------------------------------------------------------------------
+Method A: Using PowerShell (Recommended)
+--------------------------------------------------------------------------------
+Open PowerShell in the project directory (`H:\Code\Python\MyAI\NSFW_anime_pic_gen`) and run:
+
+# 1. Activate your virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# 2. Ensure Ninja is present
+pip install ninja
+
+# 3. Load the Visual Studio 64-bit environment into current PowerShell session
+cmd /c "call `"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat`" && set" | ForEach-Object {
+    if ($_ -match '^(.*?)=(.*)$') { Set-Content "env:\$($matches[1])" $matches[2] }
+}
+
+# 4. Set CMake generator to Ninja
+$env:CMAKE_GENERATOR = "Ninja"
+
+# 5. Build and install with Vulkan support
+pip install --force-reinstall --no-cache-dir stable-diffusion-cpp-python -C cmake.args="-DSD_VULKAN=ON"
+
+
+Method B: Using "Developer Command Prompt for VS" / CMD
+--------------------------------------------------------------------------------
+1. Open "Developer Command Prompt for VS 2026" (or VS 2022) from your Windows Start Menu.
+2. Navigate to your project directory:
+   cd /d H:\Code\Python\MyAI\NSFW_anime_pic_gen
+3. Activate the virtual environment:
+   call .venv\Scripts\activate.bat
+4. Run:
+   set "CMAKE_GENERATOR=Ninja"
+   pip install --force-reinstall --no-cache-dir stable-diffusion-cpp-python -C cmake.args="-DSD_VULKAN=ON"
+
+
+--------------------------------------------------------------------------------
+5. OPTIONAL SYSTEM RECOMMENDATION: ENABLE LONG PATHS
+--------------------------------------------------------------------------------
+To prevent path-length errors across other Windows build tools in the future:
+1. Open PowerShell as Administrator.
+2. Run:
+   New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
+     -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+================================================================================

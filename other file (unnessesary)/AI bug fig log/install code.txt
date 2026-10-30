@@ -1,0 +1,10 @@
+# 1. Ensure core tools and ninja are installed:
+python -m pip install --upgrade pip setuptools wheel ninja
+
+# 2. Run the build in a Visual Studio 64-bit environment with Ninja:
+# (Or simply run .\install_vulkan.bat)
+set "CMAKE_GENERATOR=Ninja"
+pip install --force-reinstall --no-cache-dir stable-diffusion-cpp-python -C cmake.args="-DSD_VULKAN=ON"
+
+# for ui
+pip install --upgrade gradio

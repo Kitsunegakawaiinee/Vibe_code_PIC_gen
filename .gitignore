@@ -1,0 +1,5 @@
+output/
+outputs/
+ponyDiffusionV6XL_v6StartWithThisOne.safetensors
+waiIllustriousSDXL_v170.safetensors
+.venv/

@@ -1,0 +1,38 @@
+1. install python
+2. use python virtual environment (Recommended, but it doesn't nessary)
+
+### install other lib
+3. install cmake on your computer
+4. install cl on your computer (For me, I'm using installer tool of visual studio)
+5. install Vulkan
+6. build stable-diffusion-cpp-python
+6.1 open venv
+6.2 install ninja in venv (virtual environment) 
+6.3 run this to load the Visual Studio 64-bit environment into current PowerShell session (In case using visual studio installer tool)
+"""
+cmd /c "call `"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat`" && set" | ForEach-Object {
+    if ($_ -match '^(.*?)=(.*)$') { Set-Content "env:\$($matches[1])" $matches[2] }
+}
+"""
+
+note : `"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat`" this one is path to your environment
+6.4 set cmake generator with this Code
+"""
+$env:CMAKE_GENERATOR = "Ninja"
+"""
+6.5 Build and install with Vulkan support
+"""
+pip install --force-reinstall --no-cache-dir stable-diffusion-cpp-python -C cmake.args="-DSD_VULKAN=ON"
+"""
+
+### for usage 
+7. download your model and place in model/
+example model I had ever used
+
+"""
+waiIllustriousSDXL_v170.safetensors
+ponyDiffusionV6XL_v6StartWithThisOne.safetensors
+"""
+8. output will auto save to outputs/
+
+note : it might take some time to load model to memory
